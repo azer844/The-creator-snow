@@ -3,39 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Creator Snow - Accueil</title>
-    <!-- Cette ligne permet de lier le design du fichier style.css -->
-    <link rel="stylesheet" href="style.css">
+    <title>Devilish Troll Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 { margin-bottom: 5px; color: #ff3333; text-shadow: 2px 2px black; }
+        #gameCanvas {
+            background: #222;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        .instructions { margin-top: 15px; color: #aaa; text-align: center; }
+    </style>
 </head>
 <body>
 
-    <!-- Barre de navigation supérieure -->
-    <header>
-        <div class="logo">The Creator Snow</div>
-        <nav>
-            <a href="index.html" class="active">Accueil</a>
-            <a href="#a-propos">À propos</a>
-            <a href="#contact">Contact</a>
-        </nav>
-    </header>
+    <h1>LEVEL DEVIL - CLONE</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div class="instructions">
+        <p>Utilisez les <strong>Flèches Gauche / Droite</strong> pour bouger et <strong>Espace</strong> pour sauter.</p>
+        <p>Atteignez la porte jaune... si vous le pouvez. 😈</p>
+    </div>
 
-    <!-- Section principale de bienvenue -->
-    <section class="hero">
-        <h1>Bienvenue sur mon site</h1>
-        <p>Découvrez l'univers de The Creator Snow. Un espace dédié à la création et au jeu éducatif.</p>
-        <a href="#a-propos" class="btn">En savoir plus</a>
-    </section>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-    <!-- Section de contenu -->
-    <section id="a-propos" class="content-section">
-        <h2>À propos de ce projet</h2>
-        <p>Ceci est la description de votre projet. Vous pouvez modifier ce texte pour expliquer le concept de votre jeu éducatif.</p>
-    </section>
+// Configuration du jeu
+let gravity = 0.5;
+let currentLevel = 1;
+let deaths = 0;
 
-    <!-- Pied de page -->
-    <footer>
-        <p>&copy; 2026 The Creator Snow. Tous droits réservés.</p>
-    </footer>
+// Le Joueur
+let player = {
+    x: 50,
+    y: 300,
+    width: 25,
+    height: 35,
+    vx: 0,
+    vy: 0,
+    speed: 4.5,
+    jumpForce: 11,
+    grounded: false,
+    color: "#00ffcc"
+};
 
+// Éléments du niveau par défaut
+let blocks = [];
+let spikes = [];
+let door = { x: 720, y: 280, width: 40, height: 60, color: "#ffcc00" };
+
+// Système d'activation des pièges (Trolls)
+let trap1Triggered = false;
+let trap2Triggered = false;
+
+// Gestion des touches
+let keys = {};
+window.addEventListener("keydown", (e) => keys[e.code] = true);
+window.addEventListener("keyup", (e) => keys[e.code] = false);
+
+function setupLevel(level) {
+    player.x = 50;
+    player.y = 300;
+    player.vx = 0;
+    player.vy = 0;
+    trap1Triggered = false;
+    trap2Triggered = false;
+
+    // Sol de base commun
+    blocks = [
+        { x: 0, y: 340, width: 800, height: 60, color: "#444" }
+    ];
+    spikes = [];
+
+    if (level === 1) {
+        // Un faux grand vide au milieu
+        blocks.push({ x: 0, y: 340, width: 300, height: 60, color: "#444" });
+        blocks.push({ x: 500, y: 340, width: 300, height: 60, color: "#444" });
+        // Supprimer le sol du milieu pour créer le trou
+        blocks[0].width = 300; 
+        blocks.push({ x: 500, y: 340, width: 300, height: 60, color: "#444" });
+        
+        // La porte est au bout
+        door.x = 720; door.y = 280;
+    } 
+    else if (level === 2) {
+        // Sol plat... en apparence
+        blocks = [{ x: 0, y: 340, width: 800, height: 60, color: "#444" }];
+        door.x = 720; door.y = 280;
+    }
+}
+
+function update() {
+    // Déplacements horizontaux
+    if (keys["ArrowRight"]) player.vx = player.speed;
+    else if (keys["ArrowLeft"]) player.vx = -player.speed;
+    else player.vx = 0;
+
+    // Saut
+    if (keys["Space"] && player.grounded) {
+        player.vy = -player.jumpForce;
+        player.grounded = false;
+    }
+
+    // Gravité
+    player.vy += gravity;
+    player.x += player.vx;
+    player.y += player.vy;
+
+    // --- LOGIQUE DES PIÈGES (L'esprit Level Devil) ---
+    
+    if (currentLevel === 1) {
+        // TROLL 1 : Quand le joueur s'approche du trou pour sauter, un bloc apparaît pour boucher le trou.
+        if (player.x > 220 && !trap1Triggered) {
+            // Le joueur croit qu'il va sauter au dessus du vide, mais un bloc magique apparaît !
+            blocks.push({ x: 300, y: 340, width: 200, height: 60, color: "#444" });
+            trap1Triggered = true;
+        }
+        
+        // TROLL 2 : Dès que le joueur marche sur ce nouveau bloc, des pics surgissent instantanément du sol !
+        if (player.x > 320 && !trap2Triggered) {
+            spikes.push({ x: 350, y: 320, width: 20, height: 20, color: "#ff3333" });
+            spikes.push({ x: 370, y: 320, width: 20, height: 20, color: "#ff3333" });
+            spikes.push({ x: 390, y: 320, width: 20, height: 20, color: "#ff3333" });
+            trap2Triggered = true;
+        }
+    }
+
+    if (currentLevel === 2) {
+        // TROLL 3 : La porte s'enfuit ! Quand le joueur s'approche à moins de 200px de la porte, elle se téléporte plus loin ou monte en l'air.
+        if (player.x > 550 && !trap1Triggered) {
+            door.y = 150; // La porte s'envole hors d'atteinte
+            blocks.push({ x: 700, y: 220, width: 80, height: 20, color: "#666" }); // Faux espoir de plateforme
+            trap1Triggered = true;
+        }
+        // TROLL 4 : Quand le joueur saute vers la plateforme apparue, le sol sous lui s'effondre.
+        if (player.x > 650 && !trap2Triggered) {
+            blocks[0].y = 600; // Le sol tombe dans les abysses
+            trap2Triggered = true;
+        }
+    }
+
+    // --- COLLISIONS ---
+    player.grounded = false;
+
+    for (let block of blocks) {
+        // Collision simple AABB
+        if (player.x < block.x + block.width &&
+            player.x + player.width > block.x &&
+            player.y < block.y + block.height &&
+            player.y + player.height > block.y) {
+            
+            // Résolution verticale (atterrissage)
+            if (player.vy > 0 && player.y + player.height - player.vy <= block.y + 4) {
+                player.y = block.y - player.height;
+                player.vy = 0;
+                player.grounded = true;
+            }
+        }
+    }
+
+    // Collision Pièges (Mort)
+    for (let spike of spikes) {
+        if (player.x < spike.x + spike.width &&
+            player.x + player.width > spike.x &&
+            player.y < spike.y + spike.height &&
+            player.y + player.height > spike.y) {
+            die();
+        }
+    }
+
+    // Hors limite (Trous)
+    if (player.y > canvas.height) {
+        die();
+    }
+
+    // Victoire (Atteindre la porte)
+    if (player.x < door.x + door.width &&
+        player.x + player.width > door.x &&
+        player.y < door.y + door.height &&
+        player.y + player.height > door.y) {
+        nextLevel();
+    }
+}
+
+function die() {
+    deaths++;
+    setupLevel(currentLevel);
+}
+
+function nextLevel() {
+    currentLevel++;
+    if (currentLevel > 2) {
+        alert(`Bravo ! Vous avez fini la démo avec ${deaths} morts ! Vous êtes un maître.`);
+        currentLevel = 1;
+        deaths = 0;
+    }
+    setupLevel(currentLevel);
+}
+
+function draw() {
+    // Clear l'écran
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dessiner le joueur
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    // Dessiner les blocs
+    for (let block of blocks) {
+        ctx.fillStyle = block.color;
+        ctx.fillRect(block.x, block.y, block.width, block.height);
+    }
+
+    // Dessiner les pics (triangles)
+    for (let spike of spikes) {
+        ctx.fillStyle = spike.color;
+        ctx.beginPath();
+        ctx.moveTo(spike.x, spike.y + spike.height);
+        ctx.lineTo(spike.x + spike.width / 2, spike.y);
+        ctx.lineTo(spike.x + spike.width, spike.y + spike.height);
+        ctx.fill();
+    }
+
+    // Dessiner la porte
+    ctx.fillStyle = door.color;
+    ctx.fillRect(door.x, door.y, door.width, door.height);
+
+    // Affichage UI
+    ctx.fillStyle = "#fff";
+    ctx.font = "16px Courier New";
+    ctx.fillText(`Niveau: ${currentLevel}`, 20, 30);
+    ctx.fillText(`Morts: ${deaths}`, 20, 55);
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// Initialisation
+setupLevel(currentLevel);
+gameLoop();
+</script>
 </body>
 </html>
